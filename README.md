@@ -18,7 +18,7 @@ docker pull iabsdocker/gitlab-ce:latest
 
 兼容 **ARM64** 和 **AMD64** 架构。
 
-GitHub 地址：[https://github.com/ayouwangsx/gitlab-ce](https://github.com/ayouwangsx/gitlab-ce)
+GitHub 地址：[https://github.com/IabSDocker/gitlab-ce](https://github.com/IabSDocker/gitlab-ce)
 
 Docker 镜像地址：[https://hub.docker.com/r/iabsdocker/gitlab-ce](https://hub.docker.com/r/iabsdocker/gitlab-ce)
 
