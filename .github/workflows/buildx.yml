@@ -1,0 +1,89 @@
+name: buildx
+
+on:
+  push:
+    tags:
+      - "*"
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Login to container registry
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_TOKEN }}
+
+      
+      - name: Set variables
+        shell: bash
+        run: |
+          echo "GITLAB_DIR=omnibus-gitlab" >> $GITHUB_ENV
+          echo "DOCKER_DIR=omnibus-gitlab/docker" >> $GITHUB_ENV
+          echo "GITLAB_REF_TAG=$(echo ${{ github.ref_name }} | sed 's/\-/\+/')" >> $GITHUB_ENV
+          echo "DOCKER_NAMESPACE=iabsdocker/gitlab-ce" >> $GITHUB_ENV  # 设置你的 DOCKER_NAMESPACE
+          LATEST=$(git tag | sort -rV | head -n 1)
+          if [ "${LATEST}" == "${{ github.ref_name }}" ]; then 
+            echo "IS_LATEST=true">> $GITHUB_ENV
+          else
+            echo "IS_LATEST=false">> $GITHUB_ENV
+          fi
+      
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_NAMESPACE }}  # 使用 DOCKER_NAMESPACE 环境变量
+          tags: |
+            type=match,pattern=(.*\..*)\..*-ce\..*,group=0
+      
+      - name: Check out https://github.com/gitlabhq/omnibus-gitlab.git
+        uses: actions/checkout@v4
+        with:
+          repository: gitlabhq/omnibus-gitlab
+          path: ${{ env.GITLAB_DIR }}
+          ref: ${{ env.GITLAB_REF_TAG }}
+
+      - name: Prepare for Multi-Arch building
+        shell: bash
+        run: |
+          echo "PACKAGECLOUD_REPO=gitlab-ce" > ./${{ env.DOCKER_DIR }}/RELEASE
+          echo "RELEASE_PACKAGE=gitlab-ce" >> ./${{ env.DOCKER_DIR }}/RELEASE
+          echo "RELEASE_VERSION=${{ github.ref_name }}"  >> ./${{ env.DOCKER_DIR }}/RELEASE
+          uname -m
+          # 根据平台设置下载 URL
+          #echo "DOWNLOAD_URL=https://packages.gitlab.com/gitlab/gitlab-ce/packages/ubuntu/jammy/gitlab-ce_${{ github.ref_name }}_arm64.deb/download.deb" >> ./${{ env.DOCKER_DIR }}/RELEASE
+          sed -i '/Install required packages/a RUN apt-get update -q && apt-get install -y libatomic1' ./${{ env.DOCKER_DIR }}/Dockerfile
+          #echo "sudo apt-get install -y libatomic1 && sudo apt-get clean && sudo rm -rf /var/lib/apt/lists/*" >> ./${{ env.DOCKER_DIR }}/RELEASE
+          echo 'ARCH=$(uname -m) && if [[ "${ARCH}" == "x86_64" ]]; then DOWNLOAD_URL="https://packages.gitlab.com/gitlab/gitlab-ce/packages/ubuntu/jammy/gitlab-ce_${{ github.ref_name }}_amd64.deb/download.deb"; elif [[ "${ARCH}" == "aarch64" ]]; then DOWNLOAD_URL="https://packages.gitlab.com/gitlab/gitlab-ce/packages/ubuntu/jammy/gitlab-ce_${{ github.ref_name }}_arm64.deb/download.deb"; else echo "Unknown architecture" && exit 1; fi' >> ./${{ env.DOCKER_DIR }}/RELEASE
+          echo "DOWNLOAD_URL_amd64=https://packages.gitlab.com/gitlab/gitlab-ce/packages/ubuntu/jammy/gitlab-ce_${{ github.ref_name }}_amd64.deb/download.deb" >> ./${{ env.DOCKER_DIR }}/RELEASE
+          echo "DOWNLOAD_URL_arm64=https://packages.gitlab.com/gitlab/gitlab-ce/packages/ubuntu/jammy/gitlab-ce_${{ github.ref_name }}_arm64.deb/download.deb" >> ./${{ env.DOCKER_DIR }}/RELEASE
+          #sed -i '/Install GitLab/a [[ "${TARGETARCH}" == "amd64" ]] && export DOWNLOAD_URL=${DOWNLOAD_URL_amd64} || [[ "${TARGETARCH}" == "arm64" ]] && export DOWNLOAD_URL=${DOWNLOAD_URL_arm64}' ./${{ env.DOCKER_DIR }}/assets/setup
+          cat ./${{ env.DOCKER_DIR }}/Dockerfile
+
+          # 根据架构修改 setup 脚本
+          #echo 'sed -i "s\# ignore-warnings ARM64-COW-BUG\ignore-warnings ARM64-COW-BUG\g" /opt/gitlab/embedded/cookbooks/redis/templates/default/redis.conf.erb' >> ./${{ env.DOCKER_DIR }}/assets/setup
+          #echo 'sed -i "s\# ignore-warnings AMD64-COW-BUG\ignore-warnings AMD64-COW-BUG\g" /opt/gitlab/embedded/cookbooks/redis/templates/default/redis.conf.erb' >> ./${{ env.DOCKER_DIR }}/assets/setup
+          sed -i '/Patch omnibus package/a [ "$(uname -m)" == "arm"* ] || [ "$(uname -m)" == "aarch64" ] && sed -i "s8# ignore-warnings ARM64-COW-BUG8ignore-warnings ARM64-COW-BUG8g" /opt/gitlab/embedded/cookbooks/redis/templates/default/redis.conf.erb' ./${{ env.DOCKER_DIR }}/assets/setup
+          
+
+      - name: Build and Push Multi-Arch Image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.DOCKER_DIR }}
+          platforms: linux/amd64,linux/arm64  # 同时构建 ARM64 和 AMD64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}  # 这里会包含有效的标签
