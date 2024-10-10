@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cat version_list | while read version; do
+cat version | while read version; do
     HAVE_TAG=false
 
     for tag in $(git tag); do
