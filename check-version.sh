@@ -1,13 +1,13 @@
 #!/bin/bash
 
-SEARCH_PAGES='105'
+SEARCH_PAGES='100'
 
 if [ -f ./version_list ]; then
     rm version_list
     rm version
 fi
 
-for i in $(seq 100 ${SEARCH_PAGES}); do
+for i in $(seq 98 ${SEARCH_PAGES}); do
     curl -s "https://packages.gitlab.com/app/gitlab/gitlab-ce/search?dist=&filter=debs&page=${i}&q=" | grep "_arm64.deb" | grep -v '\-rc' | sed 's/.*>\(.*\)<.*/\1/' | sort -u | sed 's/gitlab-ce_\(.*\)_arm64.deb/\1/' >> version_list;
 done
 
