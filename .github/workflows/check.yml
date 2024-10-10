@@ -6,8 +6,10 @@ on:
     branches:
       - master
   schedule:
-    # UTC 时间的下午 5 点 30 分，北京时间的凌晨 1 点 30 分
-    - cron: "30 17 * * *"
+    # UTC 时间 17 点 30 分，北京时间 1 点 30 分
+    #- cron: "30 17 * * *"
+    # UTC 时间 3 点 30 分，北京时间 11 点 30 分
+    - cron: "30 3 * * *"
 
 jobs:
   check:
