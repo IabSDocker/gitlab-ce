@@ -2,6 +2,8 @@
 
 grep -v '^\(1[0-3]\)\.' version_list | sort -Vu version_list -o version
 
+cat version
+
 cat version | while read version; do
     HAVE_TAG=false
 
