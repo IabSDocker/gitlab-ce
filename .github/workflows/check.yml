@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - master
+      - main
   schedule:
     # UTC 时间 17 点 30 分，北京时间 1 点 30 分
     #- cron: "30 17 * * *"
