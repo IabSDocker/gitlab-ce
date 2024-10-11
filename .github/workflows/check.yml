@@ -4,12 +4,12 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - main
+      - mainn
   schedule:
     # UTC 时间 17 点 30 分，北京时间 1 点 30 分
     #- cron: "30 17 * * *"
     # UTC 时间 4 点 00 分，北京时间 12 点 00 分
-    - cron: '30 4 * * *'
+    - cron: '0 4 * * *'
 
 jobs:
   check:
